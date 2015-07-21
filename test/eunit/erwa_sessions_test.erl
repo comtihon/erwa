@@ -37,23 +37,16 @@ simple_test() ->
 die_test() ->
   erwa_sessions_man:init(),
   0 = get_tablesize(),
-  F =
-    fun() ->
-      erwa_sessions_man:register_session(<<"test_realm">>),
-      timer:sleep(200)
-    end,
-  spawn(F),
+  erwa_sessions_man:register_session(<<"test_realm">>),
   ok = ensure_tablesize(2, 500),
+  erwa_sessions_man:unregister_session(),
   ok = ensure_tablesize(0, 5000),
   ets:delete(?SESSIONS_ETS).
 
 
 %% @private
 get_tablesize() ->
-  Pid = whereis(erwa_sessions),
-  Tables = ets:all(),
-  [Table] = lists:filter(fun(T) -> ets:info(T, owner) == Pid end, Tables),
-  ets:info(Table, size).
+  ets:info(?SESSIONS_ETS, size).
 
 %% @private
 ensure_tablesize(_Number, MaxTime) when MaxTime =< 0 ->

@@ -22,6 +22,7 @@
 -module(erwa_realms_test).
 -author("tihon").
 
+-include("erwa_service.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 start_stop_test() ->
@@ -81,7 +82,12 @@ add_remove_test() ->  %TODO functional?
 get_tablesize() ->
   Pid = whereis(erwa_realms),
   Tables = ets:all(),
-  [Table] = lists:filter(fun(T) -> ets:info(T, owner) == Pid end, Tables),
+  [Table] =
+    lists:filter(
+      fun
+        (?SESSIONS_ETS) -> false;
+        (T) -> ets:info(T, owner) == Pid
+      end, Tables),
   ets:info(Table, size).
 
 %% @private
