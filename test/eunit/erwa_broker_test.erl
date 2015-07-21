@@ -22,6 +22,7 @@
 -module(erwa_broker_test).
 -author("tihon").
 
+-include("erwa_service.hrl").
 -include("erwa_model.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -74,11 +75,11 @@ unsubscribe_all_test() ->
   {ok, stopped} = erwa_broker:stop(Data).
 
 multiple_un_subscribe_test() ->
-  erwa_sessions:start_link(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_broker:start(),
   {ok, Data} = erwa_broker:get_data(Pid),
   ok = erwa_broker:disable_metaevents(Data),
-  {ok, SessionId} = erwa_sessions:register_session(<<"erwa.test">>),
+  {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
   0 = get_tablesize(Data),
   {ok, ID1} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId, Data),
   3 = get_tablesize(Data),
@@ -87,7 +88,7 @@ multiple_un_subscribe_test() ->
   MyPid = self(),
   F =
     fun() ->
-      {ok, S2} = erwa_sessions:register_session(<<"erwa.test">>),
+      {ok, S2} = erwa_sessions_man:register_session(<<"erwa.test">>),
       {ok, ID3} = erwa_broker:subscribe(<<"topic.test1">>, #{}, S2, Data),
       MyPid ! {first_subscription, ID3},
       timer:sleep(200),
@@ -118,21 +119,21 @@ multiple_un_subscribe_test() ->
   3 = get_tablesize(Data),
   ok = erwa_broker:unsubscribe_all(SessionId, Data),
   0 = get_tablesize(Data),
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   {ok, stopped} = erwa_broker:stop(Data).
 
 publish_test() ->
-  erwa_sessions:start_link(),
   {ok, _} = erwa_publications:start(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_broker:start(),
   {ok, Data} = erwa_broker:get_data(Pid),
   ok = erwa_broker:disable_metaevents(Data),
-  {ok, SessionId} = erwa_sessions:register_session(<<"erwa.test">>),
+  {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
   {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId, Data),
   MyPid = self(),
   F =
     fun() ->
-      {ok, S2} = erwa_sessions:register_session(<<"erwa.test">>),
+      {ok, S2} = erwa_sessions_man:register_session(<<"erwa.test">>),
       {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, S2, Data),
       MyPid ! subscribed,
       receive
@@ -155,18 +156,18 @@ publish_test() ->
          {erwa, {event, ID, PublicationID2, #{}, undefined, undefined}} ->
            ok
        end,
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   {ok, stopped} = erwa_broker:stop(Data),
   {ok, stopped} = erwa_publications:stop().
 
 exclude_test() ->
-  erwa_sessions:start_link(),
+  erwa_sessions_man:init(),
   {ok, _} = erwa_publications:start(),
   {ok, Pid} = erwa_broker:start(),
   {ok, Data} = erwa_broker:get_data(Pid),
   ok = erwa_broker:disable_metaevents(Data),
-  {ok, SessionId1} = erwa_sessions:register_session(<<"erwa.test">>),
-  {ok, SessionId2} = erwa_sessions:register_session(<<"erwa.test">>),
+  {ok, SessionId1} = erwa_sessions_man:register_session(<<"erwa.test">>),
+  {ok, SessionId2} = erwa_sessions_man:register_session(<<"erwa.test">>),
   {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId1, Data),
   MyPid = self(),
   F = fun() ->
@@ -208,18 +209,18 @@ exclude_test() ->
          nothing -> ok;
          yes_got_it -> wrong
        end,
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   {ok, stopped} = erwa_broker:stop(Data),
   {ok, stopped} = erwa_publications:stop().
 
 eligible_test() ->
-  erwa_sessions:start_link(),
+  erwa_sessions_man:init(),
   {ok, _} = erwa_publications:start(),
   {ok, Pid} = erwa_broker:start(),
   {ok, Data} = erwa_broker:get_data(Pid),
   ok = erwa_broker:disable_metaevents(Data),
-  {ok, SessionId1} = erwa_sessions:register_session(<<"erwa.test">>),
-  {ok, SessionId2} = erwa_sessions:register_session(<<"erwa.test">>),
+  {ok, SessionId1} = erwa_sessions_man:register_session(<<"erwa.test">>),
+  {ok, SessionId2} = erwa_sessions_man:register_session(<<"erwa.test">>),
 
   {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId1, Data),
   MyPid = self(),
@@ -263,7 +264,7 @@ eligible_test() ->
          nothing -> ok;
          yes_got_it -> wrong
        end,
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   {ok, stopped} = erwa_broker:stop(Data),
   {ok, stopped} = erwa_publications:stop().
 

@@ -24,6 +24,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("erwa_model.hrl").
+-include("erwa_service.hrl").
 
 start_stop_test() ->
   {ok, Pid} = erwa_dealer:start(),
@@ -152,8 +153,8 @@ multiple_un_register_test() ->
   {ok, stopped} = erwa_dealer:stop(Data).
 
 call_test() ->
+  erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
-  erwa_sessions:start_link(),
   erwa_test_utils:flush(),
   {ok, Pid} = erwa_dealer:start(),
   {ok, Data} = erwa_dealer:get_data(Pid),
@@ -161,7 +162,7 @@ call_test() ->
   MyPid = self(),
   F =
     fun() ->
-      {ok, SessionId} = erwa_sessions:register_session(Realm),
+      {ok, SessionId} = erwa_sessions_man:register_session(Realm),
       {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, SessionId, Data),
       MyPid ! subscribed,
       {ok, A, B, InvocationPid} = receive
@@ -173,7 +174,7 @@ call_test() ->
       ok
     end,
   CPid = spawn(F),
-  {ok, SessionId} = erwa_sessions:register_session(Realm),
+  {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   monitor(process, CPid),
   ok = receive
          subscribed -> ok
@@ -196,21 +197,21 @@ call_test() ->
            ok
        end,
   erwa_test_utils:flush(),
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 caller_identification_test() ->
+  erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
-  erwa_sessions:start_link(),
   erwa_test_utils:flush(),
   Realm = <<"erwa.test">>,
   {ok, Pid} = erwa_dealer:start(),
   {ok, Data} = erwa_dealer:get_data(Pid),
-  {ok, SessionId} = erwa_sessions:register_session(Realm),
+  {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   MyPid = self(),
   F =
     fun() ->
-      {ok, LocalSessId} = erwa_sessions:register_session(Realm),
+      {ok, LocalSessId} = erwa_sessions_man:register_session(Realm),
       {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, LocalSessId, Data),
       MyPid ! subscribed,
       {ok, A, B, InOptions} = receive
@@ -247,12 +248,12 @@ caller_identification_test() ->
          done -> ok
        end,
   erwa_test_utils:flush(),
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 call_cancel_test() ->
+  erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
-  erwa_sessions:start_link(),
   erwa_test_utils:flush(),
   Realm = <<"erwa.test">>,
   {ok, Pid} = erwa_dealer:start(),
@@ -261,7 +262,7 @@ call_cancel_test() ->
   MyPid = self(),
   F =
     fun() ->
-      {ok, SessionId} = erwa_sessions:register_session(Realm),
+      {ok, SessionId} = erwa_sessions_man:register_session(Realm),
       {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, SessionId, Data),
       MyPid ! subscribed,
       {ok, InOptions} = receive
@@ -280,7 +281,7 @@ call_cancel_test() ->
       ok
     end,
   spawn(F),
-  {ok, SessionId} = erwa_sessions:register_session(Realm),
+  {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   ok = receive
          subscribed -> ok
        end,
@@ -302,12 +303,12 @@ call_cancel_test() ->
          done -> ok
        end,
   erwa_test_utils:flush(),
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 call_progressive_test() ->
+  erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
-  erwa_sessions:start_link(),
   erwa_test_utils:flush(),
   Realm = <<"erwa.test">>,
   {ok, Pid} = erwa_dealer:start(),
@@ -316,7 +317,7 @@ call_progressive_test() ->
   MyPid = self(),
   F =
     fun() ->
-      {ok, SessionId} = erwa_sessions:register_session(Realm),
+      {ok, SessionId} = erwa_sessions_man:register_session(Realm),
       {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, SessionId, Data),
       MyPid ! subscribed,
       {ok, InOptions} = receive
@@ -331,7 +332,7 @@ call_progressive_test() ->
       ok
     end,
   spawn(F),
-  {ok, SessionId} = erwa_sessions:register_session(Realm),
+  {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   ok = receive
          subscribed -> ok
        end,
@@ -351,7 +352,7 @@ call_progressive_test() ->
            ok
        end,
   erwa_test_utils:flush(),
-  erwa_sessions:stop(),
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 garbage_test() ->

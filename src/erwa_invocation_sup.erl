@@ -25,10 +25,6 @@
 -module(erwa_invocation_sup).
 -behaviour(supervisor).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
 %% API.
 -export([start_link/0]).
 -export([start_invocation/1]).
@@ -55,4 +51,3 @@ init([]) ->
       temporary, 5000, worker, []}
   ],
   {ok, {{simple_one_for_one, 1000, 10}, Procs}}.
-

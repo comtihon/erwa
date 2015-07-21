@@ -102,7 +102,7 @@ unsubscribe_all(SessionId, #data{pid = Pid}) ->
 
 -spec publish(Topic :: binary(), Options :: map(), Arguments :: list(), ArgumentsKw :: map(), Session :: term(), Data :: #data{}) ->
   {ok, non_neg_integer()}.
-publish(TopicUri, Options, Arguments, ArgumentsKw, SessionId, #data{ets = Ets}) ->
+publish(TopicUri, Options, Arguments, ArgumentsKw, SessionId, #data{ets = Ets}) ->  %TODO move me to manager
   case ets:lookup(Ets, TopicUri) of
     [#topic{subscribers = Subs, id = SubscriptionId}] ->
       {ok, PublicationID} = erwa_publications:get_pub_id(),
@@ -124,7 +124,7 @@ publish(TopicUri, Options, Arguments, ArgumentsKw, SessionId, #data{ets = Ets}) 
           case (not lists:member(SessId, ToExclude)) and lists:member(SessId, ToEligible) of
             true ->
               Msg = {event, SubscriptionId, PublicationID, Details, Arguments, ArgumentsKw},
-              erwa_sessions:send_message_to(Msg, SessId),
+              erwa_sessions_man:send_message_to(Msg, SessId),
               true;
             false ->
               false

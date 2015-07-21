@@ -53,6 +53,7 @@ stop() ->
 
 %% gen_server.
 init([]) ->
+  erwa_sessions_man:init(),
   ets:new(?REALMS_ETS, [protected, named_table, {read_concurrency, true}, {write_concurrency, true}]),
   {ok, #state{}}.
 
@@ -92,6 +93,7 @@ code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
 
+%% @private
 -spec create_new_realm(Name :: binary(), MW_List :: [atom()]) -> ok | {error, Reason :: term()}.
 create_new_realm(Name, MW_List) ->
   case ets:lookup(?REALMS_ETS, Name) of
@@ -106,6 +108,7 @@ create_new_realm(Name, MW_List) ->
       {error, shutting_down}
   end.
 
+%% @private
 stop_realm({name, Name}, Type) ->
   case ets:lookup(?REALMS_ETS, Name) of
     [{Name, RealmState, Pid, Ref, MW_List}] ->
@@ -126,7 +129,7 @@ stop_realm({name, Name}, Type) ->
     [] -> {error, not_running};
     Res -> {error, Res}
   end;
-stop_realm({monitor, Ref}, clean_up) -> %TODO ets protected
+stop_realm({monitor, Ref}, clean_up) ->
   case ets:lookup(?REALMS_ETS, Ref) of
     [] ->
       ok;

@@ -22,12 +22,13 @@
 -module(erwa_invocation_test).
 -author("tihon").
 
+-include("erwa_service.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 call_result_test() ->
   erwa_test_utils:flush(),
-  erwa_sessions:start_link(),
-  {ok, SessionId} = erwa_sessions:register_session(<<"erwa.test">>),
+  erwa_sessions_man:init(),
+  {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
   CallInfo = #{procedure_id => 123,
     caller_id => SessionId,
     call_req_id => 124,
@@ -49,12 +50,13 @@ call_result_test() ->
   ok = receive
          {'DOWN', _, process, Pid, _} -> ok
        end,
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 call_error_test() ->
   erwa_test_utils:flush(),
-  erwa_sessions:start_link(),
-  {ok, SessionId} = erwa_sessions:register_session(<<"erwa.test">>),
+  erwa_sessions_man:init(),
+  {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
   CallInfo = #{procedure_id => 123,
     caller_id => SessionId,
     call_req_id => 124,
@@ -76,12 +78,13 @@ call_error_test() ->
   ok = receive
          {'DOWN', _, process, Pid, _} -> ok
        end,
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 cancel_test() ->
   erwa_test_utils:flush(),
-  erwa_sessions:start_link(),
-  {ok, SessionId} = erwa_sessions:register_session(<<"erwa.test">>),
+  erwa_sessions_man:init(),
+  {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
   CallInfo = #{procedure_id => 123,
     caller_id => SessionId,
     call_req_id => 124,
@@ -107,12 +110,13 @@ cancel_test() ->
   ok = receive
          {'DOWN', _, process, Pid, _} -> ok
        end,
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 timeout_test() ->
   erwa_test_utils:flush(),
-  erwa_sessions:start_link(),
-  {ok, SessionId} = erwa_sessions:register_session(<<"erwa.test">>),
+  erwa_sessions_man:init(),
+  {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
   CallInfo = #{procedure_id => 123,
     caller_id => SessionId,
     call_req_id => 124,
@@ -137,6 +141,7 @@ timeout_test() ->
   ok = receive
          {'DOWN', _, process, Pid, _} -> ok
        end,
+  ets:delete(?SESSIONS_ETS),
   ok.
 
 failed_init_test() ->
@@ -170,6 +175,7 @@ failed_init_test() ->
   ok.
 
 garbage_test() ->
+  erwa_sessions_man:init(), %used in erwa_invocation:start in send_message
   CallInfo = #{procedure_id => 123,
     caller_id => 2393874,
     call_req_id => 124,
@@ -182,4 +188,5 @@ garbage_test() ->
   ignored = gen_server:call(Pid, some_garbage),
   ok = gen_server:cast(Pid, some_garbage),
   Pid ! some_garbage,
-  {ok, stopped} = erwa_invocation:stop(Pid).
+  {ok, stopped} = erwa_invocation:stop(Pid),
+  ets:delete(?SESSIONS_ETS).

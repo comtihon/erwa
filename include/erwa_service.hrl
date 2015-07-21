@@ -9,4 +9,5 @@
 -author("tihon").
 
 -define(REALMS_SERVICE, erwa_realms).
--define(REALMS_ETS, realms).
+-define(REALMS_ETS, erwa_realms_tab).
+-define(SESSIONS_ETS, erwa_sessions_tab).

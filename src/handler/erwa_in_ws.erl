@@ -24,10 +24,6 @@
 
 -behaviour(cowboy_websocket).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
 -include("erwa_model.hrl").
 
 
@@ -47,71 +43,72 @@
 
 
 init(Req, _Opts) ->
-	% need to check for the wamp.2.json or wamp.2.msgpack
-	Protocols = cowboy_req:parse_header(?SUBPROTHEADER, Req),
-	case find_supported_protocol(Protocols) of
-		{Enc, WsEncoding, Header} ->
-			Req1 = cowboy_req:set_resp_header(?SUBPROTHEADER, Header, Req),
-			Peer = cowboy_req:peer(Req1),
-			Session = #session{peer = Peer, source = websocket},
-			{cowboy_websocket, Req1, #ws_state{enc = Enc, ws_enc = WsEncoding, session = Session}};
-		_ ->
-			% unsupported
-			{shutdown, Req}
-	end.
+  % need to check for the wamp.2.json or wamp.2.msgpack
+  Protocols = cowboy_req:parse_header(?SUBPROTHEADER, Req),
+  case find_supported_protocol(Protocols) of
+    {Enc, WsEncoding, Header} ->
+      Req1 = cowboy_req:set_resp_header(?SUBPROTHEADER, Header, Req),
+      Peer = cowboy_req:peer(Req1),
+      Session = #session{peer = Peer, source = websocket},
+      {cowboy_websocket, Req1, #ws_state{enc = Enc, ws_enc = WsEncoding, session = Session}};
+    _ ->
+      % unsupported
+      {shutdown, Req}
+  end.
 
 
 websocket_handle({WsEnc, Data}, Req, #ws_state{ws_enc = WsEnc, enc = Enc, buffer = Buffer, session = Session} = State) ->
-	{MList, NewBuffer} = wamper_protocol:deserialize(<<Buffer/binary, Data/binary>>, Enc),
-	{ok, OutFrames, NewSession} = handle_messages(MList, [], Session, State),
-	{reply, OutFrames, Req, State#ws_state{buffer = NewBuffer, session = NewSession}};
+  {MList, NewBuffer} = wamper_protocol:deserialize(<<Buffer/binary, Data/binary>>, Enc),
+  {ok, OutFrames, NewSession} = handle_messages(MList, [], Session, State),
+  {reply, OutFrames, Req, State#ws_state{buffer = NewBuffer, session = NewSession}};
 websocket_handle(Data, Req, State) ->
-	erlang:error(unsupported, [Data, Req, State]),
-	{ok, Req, State}.
+  erlang:error(unsupported, [Data, Req, State]),
+  {ok, Req, State}.
 
 websocket_info(erwa_stop, Req, State) ->
-	{stop, Req, State};
+  {stop, Req, State};
 websocket_info({erwa, Msg}, Req, #ws_state{session = Session, ws_enc = WsEnc, enc = Enc} = State) when is_tuple(Msg) ->
-	Encode = fun(M) -> {WsEnc, wamper_protocol:serialize(M, Enc)} end,
-	case erwa_session:handle_info(Msg, Session) of
-		{ok, NewSession} ->
-			{ok, Req, State#ws_state{session = NewSession}};
-		{send, OutMsg, NewSession} ->
-			{reply, Encode(OutMsg), Req, State#ws_state{session = NewSession}};
-		{send_stop, OutMsg, NewSession} ->
-			self() ! erwa_stop,
-			{reply, Encode(OutMsg), Req, State#ws_state{session = NewSession}};
-		{stop, NewSession} ->
-			{stop, Req, State#ws_state{session = NewSession}}
-	end;
+  Encode = fun(M) -> {WsEnc, wamper_protocol:serialize(M, Enc)} end,
+  case erwa_session:handle_info(Msg, Session) of
+    {ok, NewSession} ->
+      {ok, Req, State#ws_state{session = NewSession}};
+    {send, OutMsg, NewSession} ->
+      {reply, Encode(OutMsg), Req, State#ws_state{session = NewSession}};
+    {send_stop, OutMsg, NewSession} ->
+      self() ! erwa_stop,
+      {reply, Encode(OutMsg), Req, State#ws_state{session = NewSession}};
+    {stop, NewSession} ->
+      {stop, Req, State#ws_state{session = NewSession}}
+  end;
 websocket_info(_Data, Req, State) ->
-	{ok, Req, State}.
+  {ok, Req, State}.
 
 terminate(_Reason, _Req, _State) ->
-	ok.
+  erwa_sessions_man:unregister_session(),
+  ok.
 
 
 %% @private
 handle_messages([], ToSend, Session, _State) ->
-	{ok, lists:reverse(ToSend), Session};
+  {ok, lists:reverse(ToSend), Session};
 handle_messages([Msg | Tail], ToSend, Session, #ws_state{ws_enc = WsEnc, enc = Enc} = State) ->
-	Encode = fun(M) -> {WsEnc, wamper_protocol:serialize(M, Enc)} end,
-	case erwa_session:handle_message(Msg, Session) of
-		{ok, NewSession} ->
-			handle_messages(Tail, ToSend, NewSession, State);
-		{reply, OutMsg, NewSession} ->
-			handle_messages(Tail, [Encode(OutMsg) | ToSend], NewSession, State);
-		{reply_stop, OutMsg, NewSession} ->
-			self() ! erwa_stop,
-			{ok, lists:reverse([Encode(OutMsg) | ToSend]), NewSession};
-		{stop, NewSession} ->
-			self() ! erwa_stop,
-			{ok, lists:reverse(ToSend), NewSession}
-	end.
+  Encode = fun(M) -> {WsEnc, wamper_protocol:serialize(M, Enc)} end,
+  case erwa_session:handle_message(Msg, Session) of
+    {ok, NewSession} ->
+      handle_messages(Tail, ToSend, NewSession, State);
+    {reply, OutMsg, NewSession} ->
+      handle_messages(Tail, [Encode(OutMsg) | ToSend], NewSession, State);
+    {reply_stop, OutMsg, NewSession} ->
+      self() ! erwa_stop,
+      {ok, lists:reverse([Encode(OutMsg) | ToSend]), NewSession};
+    {stop, NewSession} ->
+      self() ! erwa_stop,
+      {ok, lists:reverse(ToSend), NewSession}
+  end.
 
 %% @private
 -spec find_supported_protocol([binary()]) ->
-	atom() | {json|json_batched|msgpack|msgpack_batched, text|binary, binary()}.
+  atom() | {json|json_batched|msgpack|msgpack_batched, text|binary, binary()}.
 find_supported_protocol([]) -> none;
 find_supported_protocol([?WSJSON | _T]) -> {json, text, ?WSJSON};
 find_supported_protocol([?WSJSON_BATCHED | _T]) -> {json_batched, text, ?WSJSON_BATCHED};

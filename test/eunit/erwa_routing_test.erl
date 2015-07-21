@@ -23,17 +23,17 @@
 -author("tihon").
 
 -include_lib("eunit/include/eunit.hrl").
-
+-include("erwa_service.hrl").
 -include("erwa_model.hrl").
 
 start_stop_test() ->
-  erwa_sessions:start(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_routing:start(),
   {ok, stopped} = erwa_routing:stop(Pid),
-  erwa_sessions:stop().
+  ets:delete(?SESSIONS_ETS).
 
 simple_routing_test() ->
-  erwa_sessions:start(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_routing:start(),
   Session = #session{id = 234},
   ok = erwa_routing:connect(Pid, Session),
@@ -41,20 +41,18 @@ simple_routing_test() ->
   {ok, _} = erwa_routing:get_broker(Pid),
   ok = erwa_routing:disconnect(Pid),
   {ok, stopped} = erwa_routing:stop(Pid),
-  erwa_sessions:stop().
-
+  ets:delete(?SESSIONS_ETS).
 
 forced_connection_test() ->
-  erwa_sessions:start(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_routing:start(),
   {error, not_connected} = erwa_routing:get_broker(Pid),
   {error, not_connected} = erwa_routing:get_dealer(Pid),
   {ok, stopped} = erwa_routing:stop(Pid),
-  erwa_sessions:stop().
-
+  ets:delete(?SESSIONS_ETS).
 
 meta_api_test() ->
-  erwa_sessions:start(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_routing:start(),
   Session = #session{id = 234},
   ok = erwa_routing:connect(Pid, Session),
@@ -62,13 +60,13 @@ meta_api_test() ->
   {ok, [234]} = erwa_routing:get_session_ids(Pid),
   ok = erwa_routing:disconnect(Pid),
   {ok, stopped} = erwa_routing:stop(Pid),
-  erwa_sessions:stop().
+  ets:delete(?SESSIONS_ETS).
 
 garbage_test() ->
-  erwa_sessions:start(),
+  erwa_sessions_man:init(),
   {ok, Pid} = erwa_routing:start(),
   ignored = gen_server:call(Pid, some_garbage),
   ok = gen_server:cast(Pid, some_garbage),
   Pid ! some_garbage,
   {ok, stopped} = erwa_routing:stop(Pid),
-  erwa_sessions:stop().
+  ets:delete(?SESSIONS_ETS).

@@ -23,11 +23,6 @@
 -module(erwa_invocation).
 -behaviour(gen_server).
 
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
--endif.
-
-
 %% API
 -export([cancel/2]).
 -export([yield/5]).
@@ -61,8 +56,6 @@
   results = [],
   canceled = false
 }).
-
--include_lib("eunit/include/eunit.hrl").
 
 start(Args) ->
   gen_server:start(?MODULE, Args, []).
@@ -222,19 +215,10 @@ check_and_create_state(Args) ->
 send_message_to(Msg, SessionId) when is_integer(SessionId) ->
   send_message_to(Msg, [SessionId]);
 send_message_to(Msg, Peers) when is_list(Peers) ->
-  Send = fun(SessionId, []) ->
-    erwa_sessions:send_message_to(Msg, SessionId),
-    []
-  end,
+  Send =
+    fun(SessionId, []) ->
+      erwa_sessions_man:send_message_to(Msg, SessionId),
+      []
+    end,
   lists:foldl(Send, [], Peers),
   ok.
-
-%%
-%% **********  UNIT TESTING   *************************
-%%
-
--ifdef(TEST).
-
-
-
--endif.

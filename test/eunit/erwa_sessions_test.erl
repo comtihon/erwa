@@ -23,39 +23,29 @@
 -author("tihon").
 
 -include_lib("eunit/include/eunit.hrl").
-
-stat_stop_test() ->
-  {ok, _} = erwa_sessions:start(),
-  {ok, stopped} = erwa_sessions:stop().
+-include("erwa_service.hrl").
 
 simple_test() ->
-  {ok, _} = erwa_sessions:start(),
+  erwa_sessions_man:init(),
   0 = get_tablesize(),
-  {ok, _} = erwa_sessions:register_session(<<"test_realm">>),
+  {ok, _} = erwa_sessions_man:register_session(<<"test_realm">>),
   2 = get_tablesize(),
-  ok = erwa_sessions:unregister_session(),
+  ok = erwa_sessions_man:unregister_session(),
   0 = get_tablesize(),
-  {ok, stopped} = erwa_sessions:stop().
+  ets:delete(?SESSIONS_ETS).
 
 die_test() ->
-  {ok, _} = erwa_sessions:start(),
+  erwa_sessions_man:init(),
   0 = get_tablesize(),
   F =
     fun() ->
-      erwa_sessions:register_session(<<"test_realm">>),
+      erwa_sessions_man:register_session(<<"test_realm">>),
       timer:sleep(200)
     end,
   spawn(F),
   ok = ensure_tablesize(2, 500),
   ok = ensure_tablesize(0, 5000),
-  {ok, stopped} = erwa_sessions:stop().
-
-garbage_test() ->
-  {ok, Pid} = erwa_sessions:start(),
-  ignored = gen_server:call(erwa_sessions, some_garbage),
-  ok = gen_server:cast(erwa_sessions, some_garbage),
-  Pid ! some_garbage,
-  {ok, stopped} = erwa_sessions:stop().
+  ets:delete(?SESSIONS_ETS).
 
 
 %% @private

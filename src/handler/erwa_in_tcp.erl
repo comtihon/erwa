@@ -152,6 +152,7 @@ handle_info(Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, _State) ->
+  erwa_sessions_man:unregister_session(),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

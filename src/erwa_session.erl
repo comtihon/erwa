@@ -184,7 +184,7 @@ authenticate([_ | Tail], RealmName, Details, State) ->
 
 %% @private
 create_session(RoutingPid, RealmName, Roles, State) ->
-  {ok, SessionId} = erwa_sessions:register_session(RealmName),
+  {ok, SessionId} = erwa_sessions_man:register_session(RealmName),
   ok = erwa_routing:connect(RoutingPid, State),
   {ok, Broker} = erwa_routing:get_broker(RoutingPid),
   {ok, Dealer} = erwa_routing:get_dealer(RoutingPid),
@@ -301,7 +301,7 @@ close_session(#session{broker = Broker, dealer = Dealer, routing_pid = RoutingPi
   ok = unregister(Broker, fun() -> erwa_broker:unsubscribe_all(SessionId, Broker) end),
   ok = unregister(Dealer, fun() -> erwa_dealer:unregister_all(SessionId, Broker) end),
   ok = unregister(RoutingPid, fun() -> erwa_routing:disconnect(RoutingPid) end),
-  ok = unregister(SessionId, fun() -> erwa_sessions:unregister_session() end).
+  ok = unregister(SessionId, fun() -> erwa_sessions_man:unregister_session() end).
 
 %% @private
 unregister(none, _) -> ok;

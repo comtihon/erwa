@@ -69,7 +69,7 @@ stop(Pid) ->
 
 
 init(#{dealer := Dealer, broker := Broker, routing := Routing, realm := Realm}) ->
-  {ok, SessionId} = erwa_sessions:register_session(Realm),
+  {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   F =
     fun({Method, Fun}, Map) ->
       {ok, RegId} = erwa_dealer:register(Method, #{invoke => single}, SessionId, Dealer),
@@ -77,7 +77,6 @@ init(#{dealer := Dealer, broker := Broker, routing := Routing, realm := Realm}) 
     end,
   Mapping = lists:foldl(F, #{}, ?PROCEDURES),
   {ok, #state{sess_id = SessionId, dealer = Dealer, broker = Broker, mapping = Mapping, routing = Routing}}.
-
 
 handle_call(_Msg, _From, State) ->
   {reply, ignored, State}.
@@ -100,6 +99,7 @@ handle_info(_Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, _State) ->
+  erwa_sessions_man:unregister_session(),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

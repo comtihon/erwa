@@ -82,14 +82,15 @@ check_perm(Msg, Session) ->
                      {cancel, _RequestId, Options} ->
                        {perm_cancel, [Session, Options]}
                    end,
-  F = fun(MiddleWare, InResult) ->
-    case {InResult, apply(MiddleWare, Method, Args)} of
-      {{false, OutDetails}, _} ->
-        {false, OutDetails};
-      {_, Res} ->
-        Res
-    end
-  end,
+  F =
+    fun(MiddleWare, InResult) ->
+      case {InResult, apply(MiddleWare, Method, Args)} of
+        {{false, OutDetails}, _} ->
+          {false, OutDetails};
+        {_, Res} ->
+          Res
+      end
+    end,
   lists:foldl(F, {true, #{}}, Session#session.mwl).
 
 %% @private
