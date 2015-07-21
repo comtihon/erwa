@@ -37,10 +37,9 @@ start_link() ->
 
 %% supervisor.
 init([]) ->
-  Sessions = ?CHILD(erwa_sessions, worker),
   Publications = ?CHILD(erwa_publications, worker),
   InvocationSup = ?CHILD(erwa_invocation_sup, supervisor),
   RoutingSup = ?CHILD(erwa_routing_sup, supervisor),
   Realms = ?CHILD(erwa_realms, worker),
   UserDB = ?CHILD(erwa_user_db, worker),
-  {ok, {{one_for_one, 10, 10}, [Sessions, Publications, InvocationSup, RoutingSup, Realms, UserDB]}}.
+  {ok, {{one_for_one, 10, 10}, [Publications, InvocationSup, RoutingSup, Realms, UserDB]}}.
