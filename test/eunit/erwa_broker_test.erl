@@ -26,76 +26,66 @@
 -include("erwa_model.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-start_stop_test() ->
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  0 = get_tablesize(Data),
-  ok = erwa_broker:enable_metaevents(Data),
-  {ok, stopped} = erwa_broker:stop(Data).
-
 un_subscribe_test() ->
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  ok = erwa_broker:disable_metaevents(Data),
+  {ok, Data} = erwa_broker_man:init(),
+  UData = erwa_broker_man:disable_metaevents(Data),
   SessionId = erwa_support:gen_id(),
-  0 = get_tablesize(Data),
-  {ok, ID1} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId, Data),
-  3 = get_tablesize(Data),
-  {ok, ID2} = erwa_broker:subscribe(<<"topic.test2">>, #{}, SessionId, Data),
-  5 = get_tablesize(Data),
-  ok = erwa_broker:unsubscribe(ID1, SessionId, Data),
-  3 = get_tablesize(Data),
-  {error, not_found} = erwa_broker:unsubscribe(ID1, SessionId, Data),
-  ok = erwa_broker:unsubscribe(ID2, SessionId, Data),
-  0 = get_tablesize(Data),
-  {error, not_found} = erwa_broker:unsubscribe(ID2, SessionId, Data),
-  0 = get_tablesize(Data),
-  {ok, stopped} = erwa_broker:stop(Data).
+  0 = get_tablesize(UData),
+  {ok, ID1} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId, UData),
+  3 = get_tablesize(UData),
+  {ok, ID2} = erwa_broker_man:subscribe(<<"topic.test2">>, #{}, SessionId, UData),
+  5 = get_tablesize(UData),
+  ok = erwa_broker_man:unsubscribe(ID1, SessionId, UData),
+  3 = get_tablesize(UData),
+  {error, not_found} = erwa_broker_man:unsubscribe(ID1, SessionId, Data),
+  ok = erwa_broker_man:unsubscribe(ID2, SessionId, UData),
+  0 = get_tablesize(UData),
+  {error, not_found} = erwa_broker_man:unsubscribe(ID2, SessionId, UData),
+  0 = get_tablesize(UData),
+  ets:delete(UData#data.ets).
 
 unsubscribe_all_test() ->
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  ok = erwa_broker:disable_metaevents(Data),
+  {ok, Data} = erwa_broker_man:init(),
+  UData = erwa_broker_man:disable_metaevents(Data),
   SessionId = erwa_support:gen_id(),
-  0 = get_tablesize(Data),
-  ok = erwa_broker:unsubscribe_all(SessionId, Data),
-  0 = get_tablesize(Data),
-  {ok, ID1} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId, Data),
-  3 = get_tablesize(Data),
-  {ok, ID2} = erwa_broker:subscribe(<<"topic.test2">>, #{}, SessionId, Data),
-  5 = get_tablesize(Data),
-  ok = erwa_broker:unsubscribe_all(SessionId, Data),
-  0 = get_tablesize(Data),
-  {error, not_found} = erwa_broker:unsubscribe(ID1, SessionId, Data),
-  0 = get_tablesize(Data),
-  {error, not_found} = erwa_broker:unsubscribe(ID2, SessionId, Data),
-  0 = get_tablesize(Data),
-  ok = erwa_broker:unsubscribe_all(SessionId, Data),
-  0 = get_tablesize(Data),
-  {ok, stopped} = erwa_broker:stop(Data).
+  0 = get_tablesize(UData),
+  ok = erwa_broker_man:unsubscribe_all(SessionId, UData),
+  0 = get_tablesize(UData),
+  {ok, ID1} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId, UData),
+  3 = get_tablesize(UData),
+  {ok, ID2} = erwa_broker_man:subscribe(<<"topic.test2">>, #{}, SessionId, UData),
+  5 = get_tablesize(UData),
+  ok = erwa_broker_man:unsubscribe_all(SessionId, UData),
+  0 = get_tablesize(UData),
+  {error, not_found} = erwa_broker_man:unsubscribe(ID1, SessionId, UData),
+  0 = get_tablesize(UData),
+  {error, not_found} = erwa_broker_man:unsubscribe(ID2, SessionId, UData),
+  0 = get_tablesize(UData),
+  ok = erwa_broker_man:unsubscribe_all(SessionId, UData),
+  0 = get_tablesize(UData),
+  ets:delete(UData#data.ets).
 
 multiple_un_subscribe_test() ->
   erwa_sessions_man:init(),
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  ok = erwa_broker:disable_metaevents(Data),
+  {ok, Data} = erwa_broker_man:init(),
+  UData = erwa_broker_man:disable_metaevents(Data),
   {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
-  0 = get_tablesize(Data),
-  {ok, ID1} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId, Data),
-  3 = get_tablesize(Data),
-  {ok, ID2} = erwa_broker:subscribe(<<"topic.test2">>, #{}, SessionId, Data),
-  5 = get_tablesize(Data),
+  0 = get_tablesize(UData),
+  {ok, ID1} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId, UData),
+  3 = get_tablesize(UData),
+  {ok, ID2} = erwa_broker_man:subscribe(<<"topic.test2">>, #{}, SessionId, UData),
+  5 = get_tablesize(UData),
   MyPid = self(),
   F =
     fun() ->
       {ok, S2} = erwa_sessions_man:register_session(<<"erwa.test">>),
-      {ok, ID3} = erwa_broker:subscribe(<<"topic.test1">>, #{}, S2, Data),
+      {ok, ID3} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, S2, UData),
       MyPid ! {first_subscription, ID3},
       timer:sleep(200),
-      {ok, ID4} = erwa_broker:subscribe(<<"topic.test2">>, #{}, S2, Data),
+      {ok, ID4} = erwa_broker_man:subscribe(<<"topic.test2">>, #{}, S2, UData),
       MyPid ! {second_subscription, ID4},
       timer:sleep(200),
-      ok = erwa_broker:unsubscribe_all(S2, Data),
+      ok = erwa_broker_man:unsubscribe_all(S2, UData),
       MyPid ! done,
       ok
     end,
@@ -104,74 +94,72 @@ multiple_un_subscribe_test() ->
     {first_subscription, ID1} ->
       ok
   end,
-  6 = get_tablesize(Data),
+  6 = get_tablesize(UData),
   receive
     {second_subscription, ID2} ->
       ok
   end,
-  6 = get_tablesize(Data),
+  6 = get_tablesize(UData),
   receive
     done ->
       ok
   end,
-  5 = get_tablesize(Data),
-  ok = erwa_broker:unsubscribe(ID1, SessionId, Data),
-  3 = get_tablesize(Data),
-  ok = erwa_broker:unsubscribe_all(SessionId, Data),
-  0 = get_tablesize(Data),
+  5 = get_tablesize(UData),
+  ok = erwa_broker_man:unsubscribe(ID1, SessionId, UData),
+  3 = get_tablesize(UData),
+  ok = erwa_broker_man:unsubscribe_all(SessionId, UData),
+  0 = get_tablesize(UData),
   ets:delete(?SESSIONS_ETS),
-  {ok, stopped} = erwa_broker:stop(Data).
+  ets:delete(UData#data.ets).
 
 publish_test() ->
   {ok, _} = erwa_publications:start(),
   erwa_sessions_man:init(),
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  ok = erwa_broker:disable_metaevents(Data),
+  {ok, Data} = erwa_broker_man:init(),
+  UData = erwa_broker_man:disable_metaevents(Data),
   {ok, SessionId} = erwa_sessions_man:register_session(<<"erwa.test">>),
-  {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId, Data),
+  {ok, ID} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId, UData),
   MyPid = self(),
   F =
     fun() ->
       {ok, S2} = erwa_sessions_man:register_session(<<"erwa.test">>),
-      {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, S2, Data),
+      {ok, ID} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, S2, UData),
       MyPid ! subscribed,
       receive
         {erwa, {event, ID, PubId, #{}, undefined, undefined}} ->
           MyPid ! {received, PubId}
       end,
-      ok = erwa_broker:unsubscribe_all(S2, Data),
+      ok = erwa_broker_man:unsubscribe_all(S2, UData),
       ok
     end,
   spawn(F),
   receive
     subscribed -> ok
   end,
-  {ok, PublicationID1} = erwa_broker:publish(<<"topic.test1">>, #{}, undefined, undefined, SessionId, Data),
+  {ok, PublicationID1} = erwa_broker_man:publish(<<"topic.test1">>, #{}, undefined, undefined, SessionId, UData),
   receive
     {received, PublicationID1} -> ok
   end,
-  {ok, PublicationID2} = erwa_broker:publish(<<"topic.test1">>, #{exclude_me=>false}, undefined, undefined, SessionId, Data),
+  {ok, PublicationID2} = erwa_broker_man:publish(<<"topic.test1">>, #{exclude_me=>false}, undefined, undefined, SessionId, UData),
   ok = receive
          {erwa, {event, ID, PublicationID2, #{}, undefined, undefined}} ->
            ok
        end,
   ets:delete(?SESSIONS_ETS),
-  {ok, stopped} = erwa_broker:stop(Data),
+  ets:delete(UData#data.ets),
   {ok, stopped} = erwa_publications:stop().
 
 exclude_test() ->
   erwa_sessions_man:init(),
   {ok, _} = erwa_publications:start(),
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  ok = erwa_broker:disable_metaevents(Data),
+  {ok, Data} = erwa_broker_man:init(),
+  UData = erwa_broker_man:disable_metaevents(Data),
   {ok, SessionId1} = erwa_sessions_man:register_session(<<"erwa.test">>),
   {ok, SessionId2} = erwa_sessions_man:register_session(<<"erwa.test">>),
-  {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId1, Data),
+  {ok, ID} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId1, UData),
   MyPid = self(),
   F = fun() ->
-    {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId2, Data),
+    {ok, ID} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId2, UData),
     MyPid ! subscribed,
     Received = receive
                  {erwa, {event, ID, _, #{}, undefined, undefined}} ->
@@ -189,7 +177,7 @@ exclude_test() ->
       false ->
         ok
     end,
-    ok = erwa_broker:unsubscribe_all(SessionId2, Data),
+    ok = erwa_broker_man:unsubscribe_all(SessionId2, UData),
     MyPid ! done,
     ok
   end,
@@ -197,8 +185,8 @@ exclude_test() ->
   receive
     subscribed -> ok
   end,
-  {ok, PubID} = erwa_broker:publish(<<"topic.test1">>,
-    #{exclude_me => false, exclude => [SessionId2]}, undefined, undefined, SessionId1, Data),
+  {ok, PubID} = erwa_broker_man:publish(<<"topic.test1">>,
+    #{exclude_me => false, exclude => [SessionId2]}, undefined, undefined, SessionId1, UData),
   ok = receive
          {erwa, {event, ID, PubID, #{}, undefined, undefined}} ->
            ok
@@ -210,23 +198,22 @@ exclude_test() ->
          yes_got_it -> wrong
        end,
   ets:delete(?SESSIONS_ETS),
-  {ok, stopped} = erwa_broker:stop(Data),
+  ets:delete(UData#data.ets),
   {ok, stopped} = erwa_publications:stop().
 
 eligible_test() ->
   erwa_sessions_man:init(),
   {ok, _} = erwa_publications:start(),
-  {ok, Pid} = erwa_broker:start(),
-  {ok, Data} = erwa_broker:get_data(Pid),
-  ok = erwa_broker:disable_metaevents(Data),
+  {ok, Data} = erwa_broker_man:init(),
+  UData = erwa_broker_man:disable_metaevents(Data),
   {ok, SessionId1} = erwa_sessions_man:register_session(<<"erwa.test">>),
   {ok, SessionId2} = erwa_sessions_man:register_session(<<"erwa.test">>),
 
-  {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId1, Data),
+  {ok, ID} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId1, UData),
   MyPid = self(),
   F =
     fun() ->
-      {ok, ID} = erwa_broker:subscribe(<<"topic.test1">>, #{}, SessionId2, Data),
+      {ok, ID} = erwa_broker_man:subscribe(<<"topic.test1">>, #{}, SessionId2, UData),
       MyPid ! subscribed,
       Received = receive
                    {erwa, {event, ID, _, [], undefined, undefined}} ->
@@ -244,7 +231,7 @@ eligible_test() ->
         false ->
           ok
       end,
-      ok = erwa_broker:unsubscribe_all(SessionId2, Data),
+      ok = erwa_broker_man:unsubscribe_all(SessionId2, UData),
       MyPid ! done,
       ok
     end,
@@ -252,8 +239,8 @@ eligible_test() ->
   receive
     subscribed -> ok
   end,
-  {ok, PubID} = erwa_broker:publish(<<"topic.test1">>,
-    #{exclude_me=>false, eligible=>[SessionId1]}, undefined, undefined, SessionId1, Data),
+  {ok, PubID} = erwa_broker_man:publish(<<"topic.test1">>,
+    #{exclude_me=>false, eligible=>[SessionId1]}, undefined, undefined, SessionId1, UData),
   ok = receive
          {erwa, {event, ID, PubID, #{}, undefined, undefined}} ->
            ok
@@ -265,16 +252,8 @@ eligible_test() ->
          yes_got_it -> wrong
        end,
   ets:delete(?SESSIONS_ETS),
-  {ok, stopped} = erwa_broker:stop(Data),
+  ets:delete(UData#data.ets),
   {ok, stopped} = erwa_publications:stop().
-
-
-garbage_test() ->
-  {ok, Pid} = erwa_broker:start(),
-  ignored = gen_server:call(Pid, some_garbage),
-  ok = gen_server:cast(Pid, some_garbage),
-  Pid ! some_garbage,
-  {ok, stopped} = erwa_broker:stop(Pid).
 
 
 %% @private

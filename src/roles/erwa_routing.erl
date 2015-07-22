@@ -125,11 +125,9 @@ stop(Pid) ->
 %% gen_server.
 
 init(RealmName) ->
-  Ets = ets:new(connections, [set, {keypos, #pid_info.pid}, protected]),
-  {ok, BrokerPid} = erwa_broker:start_link(),
-  {ok, Broker} = erwa_broker:get_data(BrokerPid),
-  {ok, DealerPid} = erwa_dealer:start_link(#{broker=>Broker}),
-  {ok, Dealer} = erwa_dealer:get_data(DealerPid),
+  Ets = ets:new(connections, [{keypos, #pid_info.pid}, protected]),
+  {ok, Broker} = erwa_broker_man:init(),
+  {ok, Dealer} = erwa_dealer_man:init(Broker),
   {ok, _CalleePid} = erwa_callee:start_link(#{broker=>Broker, dealer=>Dealer, routing=>self(), realm=>RealmName}),
   {ok, #state{con_ets = Ets, broker = Broker, dealer = Dealer, realm_name = RealmName}}.
 
@@ -226,11 +224,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 %% @private
-close_routing(#state{broker = Broker, dealer = Dealer, timer_ref = TRef} = State) ->
+close_routing(#state{timer_ref = TRef} = State) ->
   timer:cancel(TRef),
   send_all_clients(shutdown, State),
-  {ok, stopped} = erwa_broker:stop(Broker),
-  {ok, stopped} = erwa_dealer:stop(Dealer),
   ok.
 
 %% @private
@@ -247,5 +243,5 @@ publish_metaevent(Event, Arg, #state{broker = Broker}) ->
                 on_join -> <<"wamp.session.on_join">>;
                 on_leave -> <<"wamp.session.on_leave">>
               end,
-  {ok, _} = erwa_broker:publish(MetaTopic, #{}, [Arg], undefined, no_session, Broker),
+  {ok, _} = erwa_broker_man:publish(MetaTopic, #{}, [Arg], undefined, no_session, Broker),
   ok.

@@ -117,13 +117,10 @@ hndl_msg({hello, RealmName, Details}, #session{trans = Transport} = State) ->
           case erwa_realms_man:get_routing(RealmName) of
             {ok, RoutingPid} ->
               % the realm does exist
-              State1 = create_session(RoutingPid, RealmName, Roles, State),
-              #session{id = SessionId, broker = Broker, dealer = Dealer} = State1,
-              BrokerFeat = erwa_broker:get_features(Broker),
-              DealerFeat = erwa_dealer:get_features(Dealer),
+              State1 = #session{id = SessionId} = create_session(RoutingPid, RealmName, Roles, State),
               SessionData = #{authid => anonymous, role => anonymous, session => SessionId},
               WelcomeMsg = {welcome, SessionId, #{agent => erwa:get_version(),
-                roles => #{broker => BrokerFeat, dealer => DealerFeat}}},
+                roles => #{broker => ?BROKER_FEATURES, dealer => ?DEALER_FEATURES}}},
               {reply, WelcomeMsg, State1#session{is_auth = true, session_data = SessionData}};
             {error, _} ->
               {reply_stop, {abort, #{}, no_such_realm}, State}
@@ -135,10 +132,9 @@ hndl_msg({hello, RealmName, Details}, #session{trans = Transport} = State) ->
       AuthMethods = maps:get(authmethods, Details, []),
       authenticate(AuthMethods, RealmName, Details, State)
   end;
-hndl_msg({authenticate, _Signature, _Extra}, State = #session{id = SessionId, broker = Broker, dealer = Dealer}) ->
-  BrokerFeat = erwa_broker:get_features(Broker),
-  DealerFeat = erwa_dealer:get_features(Dealer),
-  Msg = {welcome, SessionId, #{agent => erwa:get_version(), roles => #{broker => BrokerFeat, dealer => DealerFeat}}},
+hndl_msg({authenticate, _Signature, _Extra}, State = #session{id = SessionId}) ->
+  Msg = {welcome, SessionId,
+    #{agent => erwa:get_version(), roles => #{broker => ?BROKER_FEATURES, dealer => ?DEALER_FEATURES}}},
   {reply, Msg, State#session{is_auth = true}};
 hndl_msg({abort, _Details, _ErrorUrl}, #session{is_auth = false} = State) ->
   {stop, State#session{is_auth = false}};
@@ -194,13 +190,13 @@ create_session(RoutingPid, RealmName, Roles, State) ->
 
 %% @private
 hndl_msg_authed({subscribe, RequestId, Options, Topic}, #session{broker = Broker, id = SessionId} = State) ->
-  {ok, SubscriptionId} = erwa_broker:subscribe(Topic, Options, SessionId, Broker),
+  {ok, SubscriptionId} = erwa_broker_man:subscribe(Topic, Options, SessionId, Broker),
   {reply, {subscribed, RequestId, SubscriptionId}, State};
 hndl_msg_authed({unsubscribe, RequestId, SubscriptionId}, #session{broker = Broker, id = SessionId} = State) ->
-  ok = erwa_broker:unsubscribe(SubscriptionId, SessionId, Broker),
+  ok = erwa_broker_man:unsubscribe(SubscriptionId, SessionId, Broker),
   {reply, {unsubscribed, RequestId}, State};
 hndl_msg_authed({publish, RequestId, Options, Topic, Arguments, ArgumentsKw}, #session{broker = Broker, id = SessionId} = State) ->
-  {ok, PublicationId} = erwa_broker:publish(Topic, Options, Arguments, ArgumentsKw, SessionId, Broker),
+  {ok, PublicationId} = erwa_broker_man:publish(Topic, Options, Arguments, ArgumentsKw, SessionId, Broker),
   case maps:get(acknowledge, Options, false) of
     true ->
       {reply, {published, RequestId, PublicationId}, State};
@@ -208,13 +204,13 @@ hndl_msg_authed({publish, RequestId, Options, Topic, Arguments, ArgumentsKw}, #s
       {ok, State}
   end;
 hndl_msg_authed({register, RequestId, Options, ProcedureUri}, #session{dealer = Dealer, id = SessionId} = State) ->
-  {ok, RegistrationId} = erwa_dealer:register(ProcedureUri, Options, SessionId, Dealer),
+  {ok, RegistrationId} = erwa_dealer_man:register(ProcedureUri, Options, SessionId, Dealer),
   {reply, {registered, RequestId, RegistrationId}, State};
 hndl_msg_authed({unregister, RequestId, RegistrationId}, #session{dealer = Dealer, id = SessionId} = State) ->
-  ok = erwa_dealer:unregister(RegistrationId, SessionId, Dealer),
+  ok = erwa_dealer_man:unregister(RegistrationId, SessionId, Dealer),
   {reply, {unregistered, RequestId}, State};
 hndl_msg_authed({call, RequestId, Options, ProcedureUri, Arguments, ArgumentsKw}, #session{dealer = Dealer, calls = Calls, id = SessionId} = State) ->
-  case erwa_dealer:call(ProcedureUri, RequestId, Options, Arguments, ArgumentsKw, SessionId, Dealer) of
+  case erwa_dealer_man:call(ProcedureUri, RequestId, Options, Arguments, ArgumentsKw, SessionId, Dealer) of
     {ok, Pid} ->
       {ok, State#session{calls = [{RequestId, Pid} | Calls]}};
     {error, procedure_not_found} ->
@@ -298,8 +294,8 @@ hndl_info(Info, State) ->
 
 %% @private
 close_session(#session{broker = Broker, dealer = Dealer, routing_pid = RoutingPid, id = SessionId}) ->
-  ok = unregister(Broker, fun() -> erwa_broker:unsubscribe_all(SessionId, Broker) end),
-  ok = unregister(Dealer, fun() -> erwa_dealer:unregister_all(SessionId, Broker) end),
+  ok = unregister(Broker, fun() -> erwa_broker_man:unsubscribe_all(SessionId, Broker) end),
+  ok = unregister(Dealer, fun() -> erwa_dealer_man:unregister_all(SessionId, Broker) end),
   ok = unregister(RoutingPid, fun() -> erwa_routing:disconnect(RoutingPid) end),
   ok = unregister(SessionId, fun() -> erwa_sessions_man:unregister_session() end).
 

@@ -72,7 +72,7 @@ init(#{dealer := Dealer, broker := Broker, routing := Routing, realm := Realm}) 
   {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   F =
     fun({Method, Fun}, Map) ->
-      {ok, RegId} = erwa_dealer:register(Method, #{invoke => single}, SessionId, Dealer),
+      {ok, RegId} = erwa_dealer_man:register(Method, #{invoke => single}, SessionId, Dealer),
       maps:put(RegId, Fun, Map)
     end,
   Mapping = lists:foldl(F, #{}, ?PROCEDURES),
@@ -118,12 +118,12 @@ session_list(_Options, _Arguments, _ArgumentsKw, #state{routing = Routing}) ->
 
 %% @private
 subscription_list(_Options, _Arguments, _ArgumentsKw, #state{broker = Broker}) ->
-  {ok, List} = erwa_broker:get_subscriptions(Broker),
+  {ok, List} = erwa_broker_man:get_subscriptions(Broker),
   {ok, #{}, [List], undefined}.
 
 %% @private
 subscription_lookup(_Options, [SubscriptionId], _ArgumentsKw, #state{broker = Broker}) ->
-  case erwa_broker:get_subscription(Broker, SubscriptionId) of
+  case erwa_broker_man:get_subscription(Broker, SubscriptionId) of
     {ok, Details} ->
       {ok, #{}, [Details], undefined};
     {error, not_found} ->
@@ -132,12 +132,12 @@ subscription_lookup(_Options, [SubscriptionId], _ArgumentsKw, #state{broker = Br
 
 %% @private
 registration_list(_Options, _Arguments, _ArgumentsKw, #state{dealer = Dealer}) ->
-  {ok, List} = erwa_dealer:get_registrations(Dealer),
+  {ok, List} = erwa_dealer_man:get_registrations(Dealer),
   {ok, #{}, [List], undefined}.
 
 %% @private
 registration_lookup(_Options, [RegistrationId], _ArgumentsKw, #state{dealer = Dealer}) ->
-  case erwa_dealer:get_registration(Dealer, RegistrationId) of
+  case erwa_dealer_man:get_registration(Dealer, RegistrationId) of
     {ok, Details} ->
       {ok, #{}, [Details], undefined};
     {error, not_found} ->

@@ -11,3 +11,5 @@
 -define(REALMS_SERVICE, erwa_realms).
 -define(REALMS_ETS, erwa_realms_tab).
 -define(SESSIONS_ETS, erwa_sessions_tab).
+-define(EVENTS_ETS, events).
+-define(RPC_ETS, rpc).

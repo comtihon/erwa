@@ -10,39 +10,39 @@
 
 -record(session,
 {
-	id = none,
-	is_auth = false,
-	realm_name = none,
-	mwl = [],
-	client_roles = unknown,
-	routing_pid = none,
-	broker = none,
-	dealer = none,
-	source = unknown,
-	peer = unknown,
-	ssl = false,
-	trans = unknown,
-	goodbye_sent = false,
-	calls = [],
-	session_data = #{},
-	authid = anonymous,
-	role = guest,
-	will_pass = false,
-	invocation_id = 1,
-	invocations = []
+  id = none,
+  is_auth = false,
+  realm_name = none,
+  mwl = [],
+  client_roles = unknown,
+  routing_pid = none,
+  broker = none,
+  dealer = none,
+  source = unknown,
+  peer = unknown,
+  ssl = false,
+  trans = unknown,
+  goodbye_sent = false,
+  calls = [],
+  session_data = #{},
+  authid = anonymous,
+  role = guest,
+  will_pass = false,
+  invocation_id = 1,
+  invocations = []
 }).
 
 -record(tcp_state, {
-	socket,
-	transport,
-	ok,
-	closed,
-	error,
-	erlbin_number = undefined,
-	enc = undefined,
-	length = infitity,
-	buffer = <<"">>,
-	session = undefined
+  socket,
+  transport,
+  ok,
+  closed,
+  error,
+  erlbin_number = undefined,
+  enc = undefined,
+  length = infitity,
+  buffer = <<"">>,
+  session = undefined
 }).
 
 -record(ws_state, {
@@ -71,7 +71,7 @@
   }
 ).
 
--define(DIALER_FEATURES,
+-define(DEALER_FEATURES,
   #{
     features =>
     #{
@@ -111,8 +111,9 @@
 
 -record(data,
 {
-  ets = none,
-  pid = unknown,
+  ets = none :: ets:tid(),
+  meta_events = true :: boolean(),
+  broker :: #data{}, %is used in dealer to operate with broker data
   features
 }).
 

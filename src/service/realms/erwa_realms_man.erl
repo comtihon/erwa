@@ -25,7 +25,6 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(erwa_realms_man).
--author("tihon").
 
 -include("erwa_service.hrl").
 

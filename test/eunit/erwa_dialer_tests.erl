@@ -26,68 +26,54 @@
 -include("erwa_model.hrl").
 -include("erwa_service.hrl").
 
-start_stop_test() ->
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, stopped} = erwa_dealer:stop(Pid).
-
-set_metaevents_test() ->
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
-  erwa_dealer:enable_metaevents(Data),
-  erwa_dealer:disable_metaevents(Data),
-  {ok, stopped} = erwa_dealer:stop(Data).
-
 un_register_test() ->
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
   SessionId = 123,
   0 = get_tablesize(Data),
-  {ok, ID1} = erwa_dealer:register(<<"proc.test1">>, #{}, SessionId, Data),
+  {ok, ID1} = erwa_dealer_man:register(<<"proc.test1">>, #{}, SessionId, Data),
   3 = get_tablesize(Data),
-  {ok, ID2} = erwa_dealer:register(<<"proc.test2">>, #{}, SessionId, Data),
+  {ok, ID2} = erwa_dealer_man:register(<<"proc.test2">>, #{}, SessionId, Data),
   5 = get_tablesize(Data),
-  ok = erwa_dealer:unregister(ID1, SessionId, Data),
+  ok = erwa_dealer_man:unregister(ID1, SessionId, Data),
   3 = get_tablesize(Data),
-  {error, not_found} = erwa_dealer:unregister(ID1, SessionId, Data),
-  ok = erwa_dealer:unregister(ID2, SessionId, Data),
+  {error, not_found} = erwa_dealer_man:unregister(ID1, SessionId, Data),
+  ok = erwa_dealer_man:unregister(ID2, SessionId, Data),
   0 = get_tablesize(Data),
-  {error, not_found} = erwa_dealer:unregister(ID2, SessionId, Data),
+  {error, not_found} = erwa_dealer_man:unregister(ID2, SessionId, Data),
   0 = get_tablesize(Data),
-  {ok, stopped} = erwa_dealer:stop(Data).
+  ets:delete(Data#data.ets).
 
 unregister_all_test() ->
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
   SessionId = 123,
   0 = get_tablesize(Data),
-  ok = erwa_dealer:unregister_all(SessionId, Data),
+  ok = erwa_dealer_man:unregister_all(SessionId, Data),
   0 = get_tablesize(Data),
-  {ok, ID1} = erwa_dealer:register(<<"proc.test1">>, #{}, SessionId, Data),
+  {ok, ID1} = erwa_dealer_man:register(<<"proc.test1">>, #{}, SessionId, Data),
   3 = get_tablesize(Data),
-  {ok, ID2} = erwa_dealer:register(<<"proc.test2">>, #{}, SessionId, Data),
+  {ok, ID2} = erwa_dealer_man:register(<<"proc.test2">>, #{}, SessionId, Data),
   5 = get_tablesize(Data),
-  ok = erwa_dealer:unregister_all(SessionId, Data),
+  ok = erwa_dealer_man:unregister_all(SessionId, Data),
   0 = get_tablesize(Data),
-  {error, not_found} = erwa_dealer:unregister(ID1, SessionId, Data),
+  {error, not_found} = erwa_dealer_man:unregister(ID1, SessionId, Data),
   0 = get_tablesize(Data),
-  {error, not_found} = erwa_dealer:unregister(ID2, SessionId, Data),
+  {error, not_found} = erwa_dealer_man:unregister(ID2, SessionId, Data),
   0 = get_tablesize(Data),
-  ok = erwa_dealer:unregister_all(SessionId, Data),
+  ok = erwa_dealer_man:unregister_all(SessionId, Data),
   0 = get_tablesize(Data),
-  {ok, stopped} = erwa_dealer:stop(Data).
+  ets:delete(Data#data.ets).
 
 multiple_un_register_test() ->
   erwa_test_utils:flush(),
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
   SessionId = 123,
   0 = get_tablesize(Data),
-  {ok, ID1} = erwa_dealer:register(<<"proc.test1">>, #{}, SessionId, Data),
+  {ok, ID1} = erwa_dealer_man:register(<<"proc.test1">>, #{}, SessionId, Data),
   % procedure       x 1
   % id_procedure    x 1
   % id_info         x 1
   3 = get_tablesize(Data),
-  {ok, ID2} = erwa_dealer:register(<<"proc.test2">>, #{}, SessionId, Data),
+  {ok, ID2} = erwa_dealer_man:register(<<"proc.test2">>, #{}, SessionId, Data),
   % procedure       x 2
   % id_procedure    x 2
   % id_info         x 1
@@ -95,17 +81,17 @@ multiple_un_register_test() ->
   MyPid = self(),
   F =
     fun() ->
-      {error, procedure_already_exists} = erwa_dealer:register(<<"proc.test1">>, #{}, 456, Data),
+      {error, procedure_already_exists} = erwa_dealer_man:register(<<"proc.test1">>, #{}, 456, Data),
       MyPid ! error_received,
       ok = receive
              try_again -> ok
            end,
-      {ok, _} = erwa_dealer:register(<<"proc.test1">>, #{}, 456, Data),
+      {ok, _} = erwa_dealer_man:register(<<"proc.test1">>, #{}, 456, Data),
       MyPid ! second_subscription_passed,
       ok = receive
              clean -> ok
            end,
-      ok = erwa_dealer:unregister_all(456, Data),
+      ok = erwa_dealer_man:unregister_all(456, Data),
       MyPid ! done,
       ok
     end,
@@ -118,7 +104,7 @@ multiple_un_register_test() ->
   % id_procedure    x 2
   % id_info         x 1
   5 = get_tablesize(Data),
-  ok = erwa_dealer:unregister(ID1, SessionId, Data),
+  ok = erwa_dealer_man:unregister(ID1, SessionId, Data),
   % procedure       x 1
   % id_procedure    x 1
   % id_info         x 1
@@ -139,38 +125,37 @@ multiple_un_register_test() ->
   % id_procedure    x 1
   % id_info         x 1
   ok = ensure_tablesize(3, Data, 1000),
-  ok = erwa_dealer:unregister(ID2, SessionId, Data),
+  ok = erwa_dealer_man:unregister(ID2, SessionId, Data),
   % procedure       x 0
   % id_procedure    x 0
   % id_info         x 0
   0 = get_tablesize(Data),
-  ok = erwa_dealer:unregister_all(SessionId, Data),
+  ok = erwa_dealer_man:unregister_all(SessionId, Data),
   % procedure       x 0
   % id_procedure    x 0
   % id_info         x 0
   0 = get_tablesize(Data),
   erwa_test_utils:flush(),
-  {ok, stopped} = erwa_dealer:stop(Data).
+  ets:delete(Data#data.ets).
 
 call_test() ->
   erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
   erwa_test_utils:flush(),
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
   Realm = <<"erwa.test">>,
   MyPid = self(),
   F =
     fun() ->
       {ok, SessionId} = erwa_sessions_man:register_session(Realm),
-      {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, SessionId, Data),
+      {ok, ProcId} = erwa_dealer_man:register(<<"proc.sum">>, #{}, SessionId, Data),
       MyPid ! subscribed,
       {ok, A, B, InvocationPid} = receive
                                     {erwa, {invocation, set_request_id, ProcId, #{invocation_pid := InvPid}, [In1, In2], undefined}} ->
                                       {ok, In1, In2, InvPid}
                                   end,
       ok = erwa_invocation:yield(InvocationPid, #{}, [A + B], undefined, SessionId),
-      ok = erwa_dealer:unregister_all(SessionId, Data),
+      ok = erwa_dealer_man:unregister_all(SessionId, Data),
       ok
     end,
   CPid = spawn(F),
@@ -183,7 +168,7 @@ call_test() ->
   A = erwa_support:gen_id(),
   B = erwa_support:gen_id(),
   C = A + B,
-  {ok, InvocationPid} = erwa_dealer:call(<<"proc.sum">>, RequestId, #{}, [A, B], undefined, SessionId, Data),
+  {ok, InvocationPid} = erwa_dealer_man:call(<<"proc.sum">>, RequestId, #{}, [A, B], undefined, SessionId, Data),
   monitor(process, InvocationPid),
   ok = receive
          {erwa, {result, RequestId, #{}, [C], undefined}} -> ok
@@ -198,21 +183,20 @@ call_test() ->
        end,
   erwa_test_utils:flush(),
   ets:delete(?SESSIONS_ETS),
-  ok.
+  ets:delete(Data#data.ets).
 
 caller_identification_test() ->
   erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
   erwa_test_utils:flush(),
   Realm = <<"erwa.test">>,
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
   {ok, SessionId} = erwa_sessions_man:register_session(Realm),
   MyPid = self(),
   F =
     fun() ->
       {ok, LocalSessId} = erwa_sessions_man:register_session(Realm),
-      {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, LocalSessId, Data),
+      {ok, ProcId} = erwa_dealer_man:register(<<"proc.sum">>, #{}, LocalSessId, Data),
       MyPid ! subscribed,
       {ok, A, B, InOptions} = receive
                                 {erwa, {invocation, set_request_id, ProcId, Opts, [In1, In2], undefined}} ->
@@ -221,7 +205,7 @@ caller_identification_test() ->
       SessionId = maps:get(caller, InOptions),
       InvocationPid = maps:get(invocation_pid, InOptions),
       ok = erwa_invocation:yield(InvocationPid, #{}, [A + B], undefined, LocalSessId),
-      ok = erwa_dealer:unregister_all(LocalSessId, Data),
+      ok = erwa_dealer_man:unregister_all(LocalSessId, Data),
       timer:sleep(100),
       MyPid ! done,
       ok
@@ -235,7 +219,7 @@ caller_identification_test() ->
   A = erwa_support:gen_id(),
   B = erwa_support:gen_id(),
   C = A + B,
-  {ok, InvocationPid} = erwa_dealer:call(<<"proc.sum">>, RequestId, #{disclose_me => true}, [A, B], undefined, SessionId, Data),
+  {ok, InvocationPid} = erwa_dealer_man:call(<<"proc.sum">>, RequestId, #{disclose_me => true}, [A, B], undefined, SessionId, Data),
   monitor(process, InvocationPid),
   ok = receive
          {erwa, {result, RequestId, #{}, [C], undefined}} -> ok
@@ -249,21 +233,20 @@ caller_identification_test() ->
        end,
   erwa_test_utils:flush(),
   ets:delete(?SESSIONS_ETS),
-  ok.
+  ets:delete(Data#data.ets).
 
 call_cancel_test() ->
   erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
   erwa_test_utils:flush(),
   Realm = <<"erwa.test">>,
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
 
   MyPid = self(),
   F =
     fun() ->
       {ok, SessionId} = erwa_sessions_man:register_session(Realm),
-      {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, SessionId, Data),
+      {ok, ProcId} = erwa_dealer_man:register(<<"proc.sum">>, #{}, SessionId, Data),
       MyPid ! subscribed,
       {ok, InOptions} = receive
                           {erwa, {invocation, set_request_id, ProcId, Opts, _, _}} ->
@@ -275,7 +258,7 @@ call_cancel_test() ->
                ok
            end,
       ok = erwa_invocation:error(InvocationPid, #{}, canceled, undefined, undefined, SessionId),
-      ok = erwa_dealer:unregister_all(SessionId, Data),
+      ok = erwa_dealer_man:unregister_all(SessionId, Data),
       timer:sleep(100),
       MyPid ! done,
       ok
@@ -288,7 +271,7 @@ call_cancel_test() ->
   RequestId = erwa_support:gen_id(),
   A = erwa_support:gen_id(),
   B = erwa_support:gen_id(),
-  {ok, InvocationPid} = erwa_dealer:call(<<"proc.sum">>, RequestId, #{}, [A, B], undefined, SessionId, Data),
+  {ok, InvocationPid} = erwa_dealer_man:call(<<"proc.sum">>, RequestId, #{}, [A, B], undefined, SessionId, Data),
   monitor(process, InvocationPid),
   timer:sleep(100),
   erwa_invocation:cancel(InvocationPid, []),
@@ -304,21 +287,20 @@ call_cancel_test() ->
        end,
   erwa_test_utils:flush(),
   ets:delete(?SESSIONS_ETS),
-  ok.
+  ets:delete(Data#data.ets).
 
 call_progressive_test() ->
   erwa_sessions_man:init(),
   erwa_invocation_sup:start_link(),
   erwa_test_utils:flush(),
   Realm = <<"erwa.test">>,
-  {ok, Pid} = erwa_dealer:start(),
-  {ok, Data} = erwa_dealer:get_data(Pid),
+  {ok, Data} = erwa_dealer_man:init(undefined),
 
   MyPid = self(),
   F =
     fun() ->
       {ok, SessionId} = erwa_sessions_man:register_session(Realm),
-      {ok, ProcId} = erwa_dealer:register(<<"proc.sum">>, #{}, SessionId, Data),
+      {ok, ProcId} = erwa_dealer_man:register(<<"proc.sum">>, #{}, SessionId, Data),
       MyPid ! subscribed,
       {ok, InOptions} = receive
                           {erwa, {invocation, set_request_id, ProcId, Opts, _, _}} ->
@@ -328,7 +310,7 @@ call_progressive_test() ->
       ok = erwa_invocation:yield(InvocationPid, #{progress => true}, [234], undefined, SessionId),
       timer:sleep(50),
       ok = erwa_invocation:yield(InvocationPid, #{}, [567], undefined, SessionId),
-      ok = erwa_dealer:unregister_all(SessionId, Data),
+      ok = erwa_dealer_man:unregister_all(SessionId, Data),
       ok
     end,
   spawn(F),
@@ -339,7 +321,7 @@ call_progressive_test() ->
   RequestId = erwa_support:gen_id(),
   A = erwa_support:gen_id(),
   B = erwa_support:gen_id(),
-  {ok, InvocationPid} = erwa_dealer:call(<<"proc.sum">>, RequestId, #{receive_progress => true}, [A, B], undefined, SessionId, Data),
+  {ok, InvocationPid} = erwa_dealer_man:call(<<"proc.sum">>, RequestId, #{receive_progress => true}, [A, B], undefined, SessionId, Data),
   monitor(process, InvocationPid),
   ok = receive
          {erwa, {result, RequestId, #{progress := true}, [234], undefined}} -> ok
@@ -353,14 +335,8 @@ call_progressive_test() ->
        end,
   erwa_test_utils:flush(),
   ets:delete(?SESSIONS_ETS),
-  ok.
+  ets:delete(Data#data.ets).
 
-garbage_test() ->
-  {ok, Pid} = erwa_dealer:start(),
-  ignored = gen_server:call(Pid, some_garbage),
-  ok = gen_server:cast(Pid, some_garbage),
-  Pid ! some_garbage,
-  {ok, stopped} = erwa_dealer:stop(Pid).
 
 %% @private
 get_tablesize(#data{ets = Ets}) ->
