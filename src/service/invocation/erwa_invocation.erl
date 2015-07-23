@@ -154,8 +154,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 %% @private
-do_cancel(#state{canceled = true} = State) ->
-  State;
+do_cancel(#state{canceled = true} = State) -> State;
 do_cancel(#state{callee_ids = Callees} = State) ->
   send_message_to({interrupt, set_request_id, #{invocation_pid => self()}}, Callees),
   timer:send_after(?CANCEL_TIMEOUT, shutdown),
@@ -215,10 +214,4 @@ check_and_create_state(Args) ->
 send_message_to(Msg, SessionId) when is_integer(SessionId) ->
   send_message_to(Msg, [SessionId]);
 send_message_to(Msg, Peers) when is_list(Peers) ->
-  Send =
-    fun(SessionId, []) ->
-      erwa_sessions_man:send_message_to(Msg, SessionId),
-      []
-    end,
-  lists:foldl(Send, [], Peers),
-  ok.
+  lists:foreach(fun(SessionId) -> erwa_sessions_man:send_message_to(Msg, SessionId) end, Peers).

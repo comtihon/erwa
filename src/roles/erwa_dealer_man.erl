@@ -106,8 +106,7 @@ call(Uri, RequestId, Options, Arguments, ArgumentsKw, SessionId, #data{ets = Ets
         callee_ids => Ids
       },
       case erwa_invocation_sup:start_invocation(CallInfo) of
-        {ok, Pid} ->
-          {ok, Pid};
+        {ok, Pid} -> {ok, Pid};
         _ -> {error, invocation_failed}
       end;
     [] ->
