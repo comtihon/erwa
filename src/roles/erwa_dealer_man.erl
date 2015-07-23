@@ -43,6 +43,7 @@
 -spec init(BrokerState :: #data{}) -> {ok, #data{}}.
 init(BrokerState) ->
   Ets = ets:new(?RPC_ETS, [{keypos, #id_topic.id}, public, {read_concurrency, true}, {write_concurrency, true}]),
+
   {ok, #data{ets = Ets, features = ?DEALER_FEATURES, broker = BrokerState}}.
 
 -spec enable_metaevents(#data{}) -> #data{}.

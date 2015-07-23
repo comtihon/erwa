@@ -154,12 +154,10 @@ authenticate([wampcra | _], RealmName, Details, #session{trans = Transport} = St
       case erwa_realms_man:get_routing(RealmName) of
         {ok, RoutingPid} ->
           % the realm does exist
-          State1 = create_session(RoutingPid, RealmName, Roles, State),
-          #session{id = SessionId} = State1,
+          State1 = #session{id = SessionId} = create_session(RoutingPid, RealmName, Roles, State),
           % a user that needs to authenticate
           % need to create a a challenge
-          SessionData = #{authid => AuthId, role => Role, session =>
-          SessionId},
+          SessionData = #{authid => AuthId, role => Role, session => SessionId},
           {Result, ChallengeData} = erwa_user_db:wampcra_challenge(SessionData),
           ChallengeMsg = {challenge, wampcra, ChallengeData},
           WillPass = case Result of
@@ -189,13 +187,14 @@ create_session(RoutingPid, RealmName, Roles, State) ->
     is_auth = false, dealer = Dealer, broker = Broker, client_roles = Roles}.
 
 %% @private
-hndl_msg_authed({subscribe, RequestId, Options, Topic}, #session{broker = Broker, id = SessionId} = State) ->
+hndl_msg_authed({subscribe, RequestId, Options, Topic}, State = #session{broker = Broker, id = SessionId}) ->
   {ok, SubscriptionId} = erwa_broker_man:subscribe(Topic, Options, SessionId, Broker),
   {reply, {subscribed, RequestId, SubscriptionId}, State};
-hndl_msg_authed({unsubscribe, RequestId, SubscriptionId}, #session{broker = Broker, id = SessionId} = State) ->
+hndl_msg_authed({unsubscribe, RequestId, SubscriptionId}, State = #session{broker = Broker, id = SessionId}) ->
   ok = erwa_broker_man:unsubscribe(SubscriptionId, SessionId, Broker),
   {reply, {unsubscribed, RequestId}, State};
-hndl_msg_authed({publish, RequestId, Options, Topic, Arguments, ArgumentsKw}, #session{broker = Broker, id = SessionId} = State) ->
+hndl_msg_authed({publish, RequestId, Options, Topic, Arguments, ArgumentsKw},
+    State = #session{broker = Broker, id = SessionId}) ->
   {ok, PublicationId} = erwa_broker_man:publish(Topic, Options, Arguments, ArgumentsKw, SessionId, Broker),
   case maps:get(acknowledge, Options, false) of
     true ->
@@ -203,13 +202,14 @@ hndl_msg_authed({publish, RequestId, Options, Topic, Arguments, ArgumentsKw}, #s
     _ ->
       {ok, State}
   end;
-hndl_msg_authed({register, RequestId, Options, ProcedureUri}, #session{dealer = Dealer, id = SessionId} = State) ->
+hndl_msg_authed({register, RequestId, Options, ProcedureUri}, State = #session{dealer = Dealer, id = SessionId}) ->
   {ok, RegistrationId} = erwa_dealer_man:register(ProcedureUri, Options, SessionId, Dealer),
   {reply, {registered, RequestId, RegistrationId}, State};
-hndl_msg_authed({unregister, RequestId, RegistrationId}, #session{dealer = Dealer, id = SessionId} = State) ->
+hndl_msg_authed({unregister, RequestId, RegistrationId}, State = #session{dealer = Dealer, id = SessionId}) ->
   ok = erwa_dealer_man:unregister(RegistrationId, SessionId, Dealer),
   {reply, {unregistered, RequestId}, State};
-hndl_msg_authed({call, RequestId, Options, ProcedureUri, Arguments, ArgumentsKw}, #session{dealer = Dealer, calls = Calls, id = SessionId} = State) ->
+hndl_msg_authed({call, RequestId, Options, ProcedureUri, Arguments, ArgumentsKw},
+    #session{dealer = Dealer, calls = Calls, id = SessionId} = State) ->
   case erwa_dealer_man:call(ProcedureUri, RequestId, Options, Arguments, ArgumentsKw, SessionId, Dealer) of
     {ok, Pid} ->
       {ok, State#session{calls = [{RequestId, Pid} | Calls]}};
@@ -230,7 +230,8 @@ hndl_msg_authed({cancel, RequestId, Options}, #session{calls = Calls} = State) -
       %% TODO: change the reply for eg partitioned calls
       {reply, {error, call, RequestId, #{}, no_such_procedure}, State}
   end;
-hndl_msg_authed({error, invocation, InvocationId, Details, Error, Arguments, ArgumentsKw}, #session{invocations = Invs, id = SessionId} = State) ->
+hndl_msg_authed({error, invocation, InvocationId, Details, Error, Arguments, ArgumentsKw},
+    #session{invocations = Invs, id = SessionId} = State) ->
   case lists:keyfind(InvocationId, 1, Invs) of
     {InvocationId, Pid} ->
       ok = erwa_invocation:error(Pid, Details, Error, Arguments, ArgumentsKw, SessionId),
@@ -238,7 +239,8 @@ hndl_msg_authed({error, invocation, InvocationId, Details, Error, Arguments, Arg
     _ ->
       {ok, State}
   end;
-hndl_msg_authed({yield, InvocationId, Options, Arguments, ArgumentsKw}, #session{invocations = Invs, id = SessionId} = State) ->
+hndl_msg_authed({yield, InvocationId, Options, Arguments, ArgumentsKw},
+    #session{invocations = Invs, id = SessionId} = State) ->
   case lists:keyfind(InvocationId, 1, Invs) of
     {InvocationId, Pid} ->
       ok = erwa_invocation:yield(Pid, Options, Arguments, ArgumentsKw, SessionId),
@@ -264,7 +266,8 @@ hndl_info({invocation, set_request_id, ProcedureId, Options, Arguments, Argument
   Options1 = maps:remove(invocation_pid, Options),
   NewState = State#session{invocations = [{ID, Pid} | Invs], invocation_id = ID + 1},
   {send, {invocation, ID, ProcedureId, Options1, Arguments, ArgumentsKw}, NewState};
-hndl_info({interrupt, set_request_id, Options}, State = #session{invocations = Invs, client_roles = Roles, id = SessionId}) ->
+hndl_info({interrupt, set_request_id, Options},
+    State = #session{invocations = Invs, client_roles = Roles, id = SessionId}) ->
   Pid = maps:get(invocation_pid, Options),
   {InvocationId, Pid} = lists:keyfind(Pid, 2, Invs),
   Features = maps:get(features, maps:get(callee, Roles), #{}),

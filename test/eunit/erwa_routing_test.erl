@@ -55,9 +55,11 @@ meta_api_test() ->
   erwa_sessions_man:init(),
   {ok, Pid} = erwa_routing:start(),
   Session = #session{id = 234},
+  EtsList = erwa_test_utils:get_ets(Pid),
+  Ets = proplists:get_value(?CONNECTIONS_ETS, EtsList),
   ok = erwa_routing:connect(Pid, Session),
-  {ok, 1} = erwa_routing:get_session_count(Pid),
-  {ok, [234]} = erwa_routing:get_session_ids(Pid),
+  1 = ets:info(Ets, size),
+  [234] = erwa_callee_man:get_sessions_ids(Ets),
   ok = erwa_routing:disconnect(Pid),
   {ok, stopped} = erwa_routing:stop(Pid),
   ets:delete(?SESSIONS_ETS).

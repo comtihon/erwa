@@ -139,3 +139,8 @@
   options = [],
   ids = []
 }).
+
+-record(pid_info, {
+  pid = unknown,
+  id = unknown
+}).

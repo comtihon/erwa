@@ -23,7 +23,7 @@
 -author("tihon").
 
 %% API
--export([flush/0]).
+-export([flush/0, get_ets/1]).
 
 flush() ->
   receive
@@ -32,3 +32,18 @@ flush() ->
   after 0 ->
     ok
   end.
+
+-spec get_ets(atom() | pid()) -> proplists:proplist().
+get_ets(Name) when is_atom(Name) ->
+  get_ets(whereis(Name));
+get_ets(Pid) ->
+  Tables = ets:all(),
+  lists:foldl(
+    fun(T, Acc) ->
+      case ets:info(T, owner) == Pid of
+        true ->
+          Name = ets:info(T, name),
+          [{Name, T} | Acc];
+        false -> Acc
+      end
+    end, [], Tables).

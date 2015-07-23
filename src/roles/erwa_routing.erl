@@ -24,7 +24,7 @@
 -behaviour(gen_server).
 
 -include("erwa_model.hrl").
-
+-include("erwa_service.hrl").
 
 %% API
 -export([start/0]).
@@ -37,11 +37,6 @@
 
 -export([get_broker/1]).
 -export([get_dealer/1]).
-
-
--export([get_session_count/1]).
--export([get_session_ids/1]).
-%-export([get_session_details/2]).
 
 -export([enable_metaevents/1]).
 -export([disable_metaevents/1]).
@@ -64,12 +59,10 @@
   con_ets = none,
   going_down = false,
   timer_ref = none,
-  meta_events = enabled
-}).
-
--record(pid_info, {
-  pid = unknown,
-  id = unknown
+  meta_events = enabled,
+%%   Former erwa_callee
+  sess_id = unknown,
+  mapping = #{}
 }).
 
 -define(SHUTDOWN_TIMEOUT, 30000).
@@ -80,7 +73,6 @@ start() ->
 start_link(RealmName) ->
   gen_server:start_link(?MODULE, RealmName, []).
 
-
 -spec get_broker(pid()) -> {ok, term()} | {error, going_down}.
 get_broker(Pid) ->
   gen_server:call(Pid, get_broker).
@@ -88,14 +80,6 @@ get_broker(Pid) ->
 -spec get_dealer(pid()) -> {ok, term()} | {error, going_down}.
 get_dealer(Pid) ->
   gen_server:call(Pid, get_dealer).
-
--spec get_session_count(pid()) -> {ok, non_neg_integer()}.
-get_session_count(Pid) ->
-  gen_server:call(Pid, get_session_count).
-
--spec get_session_ids(pid()) -> {ok, [non_neg_integer()]}.
-get_session_ids(Pid) ->
-  gen_server:call(Pid, get_session_ids).
 
 -spec connect(pid(), Session :: term()) -> ok | {error, going_down}.
 connect(Pid, Session) ->
@@ -105,7 +89,6 @@ connect(Pid, Session) ->
 disconnect(none) -> ok;
 disconnect(Pid) ->
   gen_server:call(Pid, disconnect).
-
 
 -spec enable_metaevents(pid()) -> ok.
 enable_metaevents(Pid) ->
@@ -125,11 +108,12 @@ stop(Pid) ->
 %% gen_server.
 
 init(RealmName) ->
-  Ets = ets:new(connections, [{keypos, #pid_info.pid}, protected]),
+  Ets = ets:new(?CONNECTIONS_ETS, [{keypos, #pid_info.pid}, protected]),
   {ok, Broker} = erwa_broker_man:init(),
   {ok, Dealer} = erwa_dealer_man:init(Broker),
-  {ok, _CalleePid} = erwa_callee:start_link(#{broker=>Broker, dealer=>Dealer, routing=>self(), realm=>RealmName}),
-  {ok, #state{con_ets = Ets, broker = Broker, dealer = Dealer, realm_name = RealmName}}.
+  {Mapping, SessionId} = erwa_callee_man:init(Dealer, RealmName),
+  {ok, #state{con_ets = Ets, broker = Broker, dealer = Dealer, realm_name = RealmName,
+    mapping = Mapping, sess_id = SessionId}}.
 
 handle_call(stop, _From, State) ->
   ok = close_routing(State),
@@ -194,22 +178,23 @@ handle_call(shutdown, _From, #state{con_ets = Ets} = State) ->
       {ok, TRef} = timer:send_after(?SHUTDOWN_TIMEOUT, timeout_force_close),
       {reply, ok, State#state{going_down = true, timer_ref = TRef}}
   end;
-handle_call(get_session_count, _From, #state{con_ets = Ets} = State) ->
-  Count = ets:info(Ets, size),
-  {reply, {ok, Count}, State};
-handle_call(get_session_ids, _From, #state{con_ets = Ets} = State) ->
-  ExtractId =
-    fun(#pid_info{id = Id}, IdList) ->
-      [Id | IdList]
-    end,
-  Ids = ets:foldl(ExtractId, [], Ets),
-  {reply, {ok, Ids}, State};
 handle_call(_Request, _From, State) ->
   {reply, ignored, State}.
 
 handle_cast(_Request, State) ->
   {noreply, State}.
 
+handle_info({erwa, {invocation, _, ProcedureId, Options, Arguments, ArgumentsKw}},
+    State = #state{sess_id = SessionId, mapping = Mapping, con_ets = Ets, broker = Broker, dealer = Dealer}) ->
+  #{invocation_pid := InvocPid} = Options,
+  Fun = maps:get(ProcedureId, Mapping, fun erwa_callee_man:empty_result/4),
+  case Fun(Options, Arguments, ArgumentsKw, {Ets, Broker, Dealer}) of
+    {ok, OutOptions, OutArguments, OutArgumentsKw} ->
+      ok = erwa_invocation:yield(InvocPid, OutOptions, OutArguments, OutArgumentsKw, SessionId);
+    {error, ErrDetails, ErrorUri, ErrArguments, ErrArgumentsKw} ->
+      ok = erwa_invocation:error(InvocPid, ErrDetails, ErrorUri, ErrArguments, ErrArgumentsKw, SessionId)
+  end,
+  {noreply, State};
 handle_info(timeout_force_close, State) ->
   close_routing(State),
   {stop, normal, State};
@@ -217,6 +202,7 @@ handle_info(_Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, _State) ->
+  erwa_sessions_man:unregister_session(),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

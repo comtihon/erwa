@@ -129,11 +129,11 @@ handle_cast({yield, Options, Arguments, ArgumentsKw, CalleeId},
 handle_cast({error, _Details, ErrorUri, Arguments, ArgumentsKw, CalleeId},
     #state{caller_id = CallerId, call_req_id = RequestId, callee_ids = Callees} = State) ->
   send_message_to({error, call, RequestId, #{}, ErrorUri, Arguments, ArgumentsKw}, CallerId),
-  case lists:delete(CalleeId, Callees) of
+  case lists:delete(CalleeId, Callees) of %TODO we should reply error?
     [] ->
       {stop, normal, State#state{callee_ids = []}};
     NewCallees ->
-      {noreply, State#state{callee_ids = NewCallees}}
+      {noreply, State#state{callee_ids = NewCallees}} %TODO why noreply?
   end;
 handle_cast(_Request, State) ->
   {noreply, State}.
@@ -157,7 +157,7 @@ code_change(_OldVsn, State, _Extra) ->
 do_cancel(#state{canceled = true} = State) -> State;
 do_cancel(#state{callee_ids = Callees} = State) ->
   send_message_to({interrupt, set_request_id, #{invocation_pid => self()}}, Callees),
-  timer:send_after(?CANCEL_TIMEOUT, shutdown),
+  erlang:send_after(?CANCEL_TIMEOUT, self(), shutdown),
   State#state{canceled = true}.
 
 %% @private
